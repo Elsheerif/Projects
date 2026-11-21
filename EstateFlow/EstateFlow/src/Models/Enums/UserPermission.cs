@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace EstateFlow.src.Models.Enums
+﻿namespace EstateFlow.src.Models.Enums
 {
-    internal class UserPermission
+    public enum UserPermission
     {
+        BrowseProperties,
+        ManageOwnProperties,
+        ManageAllProperties,
+        RequestViewing,
+        ManageViewingRequests,
+        ApproveListings,
+        ManageUsers,
+        CompleteTransactions,
+        ViewReports
     }
 }
