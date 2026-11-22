@@ -41,7 +41,7 @@ namespace EstateFlow.src.Models.Users
                 throw new ArgumentException("User ID is required.");
 
             _userId = userId;
-            _fullName = fullName;
+            FullName = fullName;
             _status = UserStatus.Active;
         }
 

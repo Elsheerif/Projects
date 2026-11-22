@@ -1,5 +1,4 @@
 ﻿using EstateFlow.src.Models.Enums;
-using System.Linq;
 
 namespace EstateFlow.src.Models.Users
 {
@@ -34,7 +33,7 @@ namespace EstateFlow.src.Models.Users
             return "Buyer";
         }
 
-        public void AddFavorite(string propertyId)
+        public void AddFavoriteProperty(string propertyId)
         {
             if (string.IsNullOrWhiteSpace(propertyId))
             {
@@ -48,7 +47,7 @@ namespace EstateFlow.src.Models.Users
             _favoritePropertyIds.Add(propertyId);
         }
 
-        public void RemoveFavorite(string propertyId)
+        public void RemoveFavoriteProperty(string propertyId)
         {
             if (string.IsNullOrWhiteSpace(propertyId))
             {

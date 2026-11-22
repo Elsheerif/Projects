@@ -1,5 +1,4 @@
 ﻿using EstateFlow.src.Models.Enums;
-using System.Linq;
 
 namespace EstateFlow.src.Models.Users
 {
