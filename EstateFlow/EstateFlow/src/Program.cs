@@ -8,6 +8,17 @@ namespace EstateFlow.src
 {
     internal class Program
     {
+        private enum PropertyMenuAction
+        {
+            AddProperty,
+            ViewAll,
+            Search,
+            Buy,
+            ViewAvailable,
+            RestoreSold,
+            Exit
+        }
+
         private static readonly string PropertiesFilePath = Path.Combine(FindProjectDirectory(), "properties.csv");
 
         private static void Main(string[] args)
@@ -96,41 +107,37 @@ namespace EstateFlow.src
 
         private static void RunPropertyMenu(PropertyManager manager, User currentUser)
         {
-            int choice = 0;
+            bool isAdmin = currentUser is SystemAdmin;
+            List<PropertyMenuAction> menuActions = new();
+            if (currentUser is Owner or SystemAdmin)
+                menuActions.Add(PropertyMenuAction.AddProperty);
+            menuActions.Add(PropertyMenuAction.ViewAll);
+            menuActions.Add(PropertyMenuAction.Search);
+            if (currentUser is Buyer)
+                menuActions.Add(PropertyMenuAction.Buy);
+            menuActions.Add(PropertyMenuAction.ViewAvailable);
+            if (isAdmin)
+                menuActions.Add(PropertyMenuAction.RestoreSold);
+            menuActions.Add(PropertyMenuAction.Exit);
+
+            bool exitRequested = false;
             do
             {
                 Console.WriteLine("\n================================");
                 Console.WriteLine("          Property Menu");
                 Console.WriteLine("================================");
-                Console.WriteLine("1. Add a new item");
-                Console.WriteLine("2. View all items");
-                Console.WriteLine("3. Search by name or keyword");
-                Console.WriteLine("4. Update an item's status");
-                Console.WriteLine("5. Remove an item");
-                Console.WriteLine("6. View available listings");
-                Console.WriteLine("Type 'I want to buy <property name>' to buy an available listing.");
-                Console.WriteLine("7. Exit");
+                for (int index = 0; index < menuActions.Count; index++)
+                    Console.WriteLine($"{index + 1}. {GetMenuLabel(menuActions[index])}");
+                if (currentUser is Buyer)
+                    Console.WriteLine("You can also type 'I want to buy <property name>'.");
 
                 string menuInput = ReadText("Enter your choice: ");
-                if (menuInput.StartsWith("I want to buy ", StringComparison.OrdinalIgnoreCase))
+                if (currentUser is Buyer && menuInput.StartsWith("I want to buy ", StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
                         string propertyName = menuInput["I want to buy ".Length..].Trim();
-                        IReadOnlyList<Property> matches = manager.FindByExactName(propertyName);
-                        if (matches.Count > 1)
-                        {
-                            Console.WriteLine("Several listings have that name. Select one by ID:");
-                            DisplayProperties(matches);
-                            string id = ReadText("Property ID to buy: ").Trim();
-                            manager.BuyById(id, currentUser);
-                        }
-                        else
-                        {
-                            manager.BuyByName(propertyName, currentUser);
-                        }
-
-                        SaveChanges(manager, $"'{propertyName}' has been marked as sold.");
+                        BuyProperty(manager, currentUser, propertyName);
                     }
                     catch (Exception ex)
                     {
@@ -138,41 +145,47 @@ namespace EstateFlow.src
                     }
                     continue;
                 }
-
-                if (!int.TryParse(menuInput, out choice))
+                if (menuInput.StartsWith("I want to buy ", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine("Invalid input. Enter a menu number or a purchase command.");
-                    choice = 0;
+                    Console.WriteLine("Purchases can only be made from a Buyer account.");
                     continue;
                 }
 
+                if (!int.TryParse(menuInput, out int choice) || choice < 1 || choice > menuActions.Count)
+                {
+                    Console.WriteLine($"Invalid input. Enter a number from 1 to {menuActions.Count}.");
+                    continue;
+                }
+
+                PropertyMenuAction action = menuActions[choice - 1];
                 try
                 {
-                    switch (choice)
+                    switch (action)
                     {
-                        case 1:
+                        case PropertyMenuAction.AddProperty:
                             AddProperty(manager);
                             break;
-                        case 2:
+                        case PropertyMenuAction.ViewAll:
                             manager.Display();
                             break;
-                        case 3:
+                        case PropertyMenuAction.Search:
                             SearchProperties(manager);
                             break;
-                        case 4:
-                            UpdateStatus(manager, currentUser);
+                        case PropertyMenuAction.Buy:
+                            BuyProperty(manager, currentUser);
                             break;
-                        case 5:
-                            RemoveProperty(manager);
-                            break;
-                        case 6:
+                        case PropertyMenuAction.ViewAvailable:
                             manager.DisplayAvailable();
                             break;
-                        case 7:
+                        case PropertyMenuAction.RestoreSold:
+                            RestoreSoldProperty(manager, currentUser);
+                            break;
+                        case PropertyMenuAction.Exit:
                             Console.WriteLine("Thank you for using EstateFlow!");
+                            exitRequested = true;
                             break;
                         default:
-                            Console.WriteLine("Invalid choice. Please select a number from 1 to 7.");
+                            Console.WriteLine("Invalid menu action.");
                             break;
                     }
                 }
@@ -180,7 +193,22 @@ namespace EstateFlow.src
                 {
                     Console.WriteLine($"Could not complete that action: {ex.Message}");
                 }
-            } while (choice != 7);
+            } while (!exitRequested);
+        }
+
+        private static string GetMenuLabel(PropertyMenuAction action)
+        {
+            return action switch
+            {
+                PropertyMenuAction.AddProperty => "Add a new property",
+                PropertyMenuAction.ViewAll => "View all properties",
+                PropertyMenuAction.Search => "Search by name or keyword",
+                PropertyMenuAction.Buy => "Buy a property",
+                PropertyMenuAction.ViewAvailable => "View available properties",
+                PropertyMenuAction.RestoreSold => "Restore a sold property",
+                PropertyMenuAction.Exit => "Exit",
+                _ => "Unknown action"
+            };
         }
 
         private static void AddProperty(PropertyManager manager)
@@ -273,35 +301,33 @@ namespace EstateFlow.src
             Console.WriteLine("----------------------------------------");
         }
 
-        private static void UpdateStatus(PropertyManager manager, User currentUser)
+        private static void BuyProperty(PropertyManager manager, User currentUser, string? requestedName = null)
         {
-            string id = ReadText("Enter the property ID: ").Trim();
-            if (currentUser is SystemAdmin)
-            {
-                Console.WriteLine("1. Available  2. Sold");
-                if (!TryReadNumber("New status: ", out int statusChoice) || statusChoice is < 1 or > 2)
-                {
-                    Console.WriteLine("Invalid status. No change was made.");
-                    return;
-                }
+            string propertyName = string.IsNullOrWhiteSpace(requestedName)
+                ? ReadText("Enter the property name to buy: ").Trim()
+                : requestedName.Trim();
 
-                PropertyStatus status = statusChoice == 1 ? PropertyStatus.Available : PropertyStatus.Sold;
-                manager.UpdateStatus(id, status, currentUser);
+            IReadOnlyList<Property> matches = manager.FindByExactName(propertyName);
+            if (matches.Count > 1)
+            {
+                Console.WriteLine("Several properties have that name. Select one by ID:");
+                DisplayProperties(matches);
+                string id = ReadText("Property ID to buy: ").Trim();
+                manager.BuyById(id, currentUser);
             }
             else
             {
-                Console.WriteLine("Only a System Admin can restore a sold listing. You may mark a property Sold.");
-                manager.UpdateStatus(id, PropertyStatus.Sold, currentUser);
+                manager.BuyByName(propertyName, currentUser);
             }
 
-            SaveChanges(manager, "Property status updated.");
+            SaveChanges(manager, $"'{propertyName}' has been marked as sold.");
         }
 
-        private static void RemoveProperty(PropertyManager manager)
+        private static void RestoreSoldProperty(PropertyManager manager, User currentUser)
         {
-            string id = ReadText("Enter the property ID to remove: ").Trim();
-            manager.Remove(id);
-            SaveChanges(manager, "Property removed.");
+            string id = ReadText("Enter the sold property ID to restore: ").Trim();
+            manager.UpdateStatus(id, PropertyStatus.Available, currentUser);
+            SaveChanges(manager, "Property is Available again.");
         }
 
         private static void SaveChanges(PropertyManager manager, string successMessage)
