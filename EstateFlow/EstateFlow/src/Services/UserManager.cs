@@ -44,6 +44,10 @@ namespace EstateFlow.src.Services
             {
                 throw new InvalidOperationException("User was not found.");
             }
+            if (user is SystemAdmin)
+            {
+                throw new InvalidOperationException("System Admin cannot be removed.");
+            }
 
             _users.Remove(user);
         }
@@ -58,7 +62,7 @@ namespace EstateFlow.src.Services
             return _users.FirstOrDefault(u => string.Equals(u.UserId, userId, StringComparison.OrdinalIgnoreCase));
         }
 
-        public IReadOnlyCollection<User> FindUserByFullName(string fullName)
+        public IReadOnlyCollection<User> FindUsersByFullName(string fullName)
         {
             if (string.IsNullOrWhiteSpace(fullName))
             {
@@ -71,6 +75,25 @@ namespace EstateFlow.src.Services
                     StringComparison.OrdinalIgnoreCase))
                 .ToList()
                 .AsReadOnly();
+        }
+
+        public void DisplayUsers()
+        {
+            if (_users.Count == 0)
+            {
+                Console.WriteLine("No users found.");
+                return;
+            }
+
+            foreach (User user in _users)
+            {
+                Console.WriteLine("----------------------------");
+                Console.WriteLine($"ID: {user.UserId}");
+                Console.WriteLine($"Name: {user.FullName}");
+                Console.WriteLine($"Role: {user.GetRoleName()}");
+                Console.WriteLine($"Status: {user.Status}");
+            }
+            Console.WriteLine("----------------------------");
         }
     }
 }
