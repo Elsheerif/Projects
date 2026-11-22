@@ -117,9 +117,20 @@ namespace EstateFlow.src
                     try
                     {
                         string propertyName = menuInput["I want to buy ".Length..].Trim();
-                        manager.BuyByName(propertyName, currentUser);
-                        manager.SaveAll(manager.Properties.ToList(), PropertiesFilePath);
-                        Console.WriteLine($"'{propertyName}' has been marked as sold.");
+                        IReadOnlyList<Property> matches = manager.FindByExactName(propertyName);
+                        if (matches.Count > 1)
+                        {
+                            Console.WriteLine("Several listings have that name. Select one by ID:");
+                            DisplayProperties(matches);
+                            string id = ReadText("Property ID to buy: ").Trim();
+                            manager.BuyById(id, currentUser);
+                        }
+                        else
+                        {
+                            manager.BuyByName(propertyName, currentUser);
+                        }
+
+                        SaveChanges(manager, $"'{propertyName}' has been marked as sold.");
                     }
                     catch (Exception ex)
                     {
@@ -185,14 +196,33 @@ namespace EstateFlow.src
             string id = ReadText("ID: ").Trim();
             string name = ReadText("Name: ").Trim();
             string address = ReadText("Address: ").Trim();
-            if (!TryReadAmount("Total cost: ", out decimal totalCost) || totalCost <= 0)
+            if (!TryReadAmount("Total cost: ", out decimal totalCost))
             {
-                Console.WriteLine("Total cost must be a number greater than zero. No property was added.");
+                Console.WriteLine("Total cost must be a valid number. No property was added.");
                 return;
             }
-            if (!TryReadAmount("Amount already spent: ", out decimal amountSpent) || amountSpent < 0 || amountSpent > totalCost)
+            try
             {
-                Console.WriteLine("Amount spent must be between zero and the total cost. No property was added.");
+                manager.ValidateFinancials(totalCost, 0);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Console.WriteLine($"{ex.Message} No property was added.");
+                return;
+            }
+
+            if (!TryReadAmount("Amount already spent: ", out decimal amountSpent))
+            {
+                Console.WriteLine("Amount spent must be a valid number. No property was added.");
+                return;
+            }
+            try
+            {
+                manager.ValidateFinancials(totalCost, amountSpent);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Console.WriteLine($"{ex.Message} No property was added.");
                 return;
             }
 
@@ -211,8 +241,7 @@ namespace EstateFlow.src
             };
 
             manager.Add(property);
-            manager.SaveAll(manager.Properties.ToList(), PropertiesFilePath);
-            Console.WriteLine("Property added. Its availability is Available.");
+            SaveChanges(manager, "Property added. Its availability is Available.");
         }
 
         private static void SearchProperties(PropertyManager manager)
@@ -265,16 +294,25 @@ namespace EstateFlow.src
                 manager.UpdateStatus(id, PropertyStatus.Sold, currentUser);
             }
 
-            manager.SaveAll(manager.Properties.ToList(), PropertiesFilePath);
-            Console.WriteLine("Property status updated.");
+            SaveChanges(manager, "Property status updated.");
         }
 
         private static void RemoveProperty(PropertyManager manager)
         {
             string id = ReadText("Enter the property ID to remove: ").Trim();
             manager.Remove(id);
-            manager.SaveAll(manager.Properties.ToList(), PropertiesFilePath);
-            Console.WriteLine("Property removed.");
+            SaveChanges(manager, "Property removed.");
+        }
+
+        private static void SaveChanges(PropertyManager manager, string successMessage)
+        {
+            if (manager.SaveAll(manager.Properties.ToList(), PropertiesFilePath))
+            {
+                Console.WriteLine(successMessage);
+                return;
+            }
+
+            Console.WriteLine("The change is in memory but was not saved. It may be lost when the app closes.");
         }
 
         private static bool TryReadAmount(string prompt, out decimal amount)

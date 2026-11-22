@@ -39,16 +39,10 @@ namespace EstateFlow.src.Models.Properties
                 throw new ArgumentException("Property name is required.", nameof(name));
             if (string.IsNullOrWhiteSpace(address))
                 throw new ArgumentException("Property address is required.", nameof(address));
-            if (totalCost <= 0)
-                throw new ArgumentOutOfRangeException(nameof(totalCost), "Total cost must be greater than zero.");
-            if (amountSpent < 0 || amountSpent > totalCost)
-                throw new ArgumentOutOfRangeException(nameof(amountSpent), "Amount spent must be between zero and the total cost.");
             if (string.IsNullOrWhiteSpace(developer))
                 throw new ArgumentException("Real estate developer is required.", nameof(developer));
             if (string.IsNullOrWhiteSpace(description))
                 throw new ArgumentException("Description is required.", nameof(description));
-            if (!Enum.IsDefined(status))
-                throw new ArgumentOutOfRangeException(nameof(status), "Property status is invalid.");
 
             _id = id.Trim();
             _name = name.Trim();

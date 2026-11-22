@@ -15,15 +15,26 @@ namespace EstateFlow.src.Services
         public void Add(Property property)
         {
             ArgumentNullException.ThrowIfNull(property);
+            ValidateFinancials(property.TotalCost, property.AmountSpent);
+            if (!Enum.IsDefined(property.Status))
+                throw new ArgumentOutOfRangeException(nameof(property), "Property status is invalid.");
             if (_properties.Any(existing => string.Equals(existing.Id, property.Id, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("A property with this ID already exists.");
 
             _properties.Add(property);
         }
 
+        public void ValidateFinancials(decimal totalCost, decimal amountSpent)
+        {
+            if (totalCost <= 0)
+                throw new ArgumentOutOfRangeException(nameof(totalCost), "Total cost must be greater than zero.");
+            if (amountSpent < 0 || amountSpent > totalCost)
+                throw new ArgumentOutOfRangeException(nameof(amountSpent), "Amount spent must be between zero and the total cost.");
+        }
+
         public void Remove(string id)
         {
-            Property? property = Find(id);
+            Property? property = FindById(id);
             if (property == null)
                 throw new InvalidOperationException("Property was not found.");
 
@@ -36,9 +47,28 @@ namespace EstateFlow.src.Services
                 throw new ArgumentException("Enter a property ID, name, or keyword.", nameof(idOrKeyword));
 
             string query = idOrKeyword.Trim();
-            return _properties.FirstOrDefault(property =>
-                string.Equals(property.Id, query, StringComparison.OrdinalIgnoreCase) ||
+            return FindById(query) ?? _properties.FirstOrDefault(property =>
                 property.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public Property? FindById(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Property ID is required.", nameof(id));
+
+            return _properties.FirstOrDefault(property =>
+                string.Equals(property.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        public IReadOnlyList<Property> FindByExactName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Property name is required.", nameof(name));
+
+            return _properties.Where(property =>
+                    string.Equals(property.Name, name.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList()
+                .AsReadOnly();
         }
 
         public IReadOnlyList<Property> FindAll(string keyword)
@@ -63,7 +93,7 @@ namespace EstateFlow.src.Services
             if (!Enum.IsDefined(status))
                 throw new ArgumentOutOfRangeException(nameof(status), "Choose a valid property status.");
 
-            Property? property = Find(id);
+            Property? property = FindById(id);
             if (property == null)
                 throw new InvalidOperationException("Property was not found.");
 
@@ -82,16 +112,25 @@ namespace EstateFlow.src.Services
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter the name of the property you want to buy.", nameof(name));
 
-            List<Property> matches = _properties.Where(property =>
-                    string.Equals(property.Name, name.Trim(), StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            IReadOnlyList<Property> matches = FindByExactName(name);
 
             if (matches.Count == 0)
                 throw new InvalidOperationException("No property with that name was found.");
             if (matches.Count > 1)
                 throw new InvalidOperationException("More than one property has that name. Search by name and use its ID to identify it.");
 
-            Property selected = matches[0];
+            BuyById(matches[0].Id, buyer);
+        }
+
+        public void BuyById(string id, User buyer)
+        {
+            ArgumentNullException.ThrowIfNull(buyer);
+            if (buyer is not Buyer)
+                throw new UnauthorizedAccessException("Only a Buyer account can purchase a property.");
+
+            Property? selected = FindById(id);
+            if (selected == null)
+                throw new InvalidOperationException("Property was not found.");
             if (selected.Status != PropertyStatus.Available)
                 throw new InvalidOperationException("That property has already been sold.");
 
@@ -134,36 +173,60 @@ namespace EstateFlow.src.Services
             Console.WriteLine("----------------------------------------");
         }
 
-        public void SaveAll(List<Property> properties, string path)
+        public bool SaveAll(List<Property> properties, string path)
         {
             ArgumentNullException.ThrowIfNull(properties);
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("A file path is required.", nameof(path));
 
+            string? temporaryPath = null;
             try
             {
-                using StreamWriter writer = new(path, false, new UTF8Encoding(false));
-                foreach (Property property in properties)
+                string fullPath = Path.GetFullPath(path);
+                temporaryPath = fullPath + ".tmp";
+                using (StreamWriter writer = new(temporaryPath, false, new UTF8Encoding(false)))
                 {
-                    string[] columns =
+                    foreach (Property property in properties)
                     {
-                        property.Id,
-                        property.GetPropertyType(),
-                        property.Name,
-                        property.Address,
-                        property.TotalCost.ToString(CultureInfo.InvariantCulture),
-                        property.AmountSpent.ToString(CultureInfo.InvariantCulture),
-                        property.Remaining.ToString(CultureInfo.InvariantCulture),
-                        property.Developer,
-                        property.Status.ToString(),
-                        property.Description
-                    };
-                    writer.WriteLine(string.Join(",", columns.Select(EscapeCsv)));
+                        ArgumentNullException.ThrowIfNull(property);
+                        string[] columns =
+                        {
+                            property.Id,
+                            property.GetPropertyType(),
+                            property.Name,
+                            property.Address,
+                            property.TotalCost.ToString(CultureInfo.InvariantCulture),
+                            property.AmountSpent.ToString(CultureInfo.InvariantCulture),
+                            property.Remaining.ToString(CultureInfo.InvariantCulture),
+                            property.Developer,
+                            property.Status.ToString(),
+                            property.Description
+                        };
+                        writer.WriteLine(string.Join(",", columns.Select(EscapeCsv)));
+                    }
+                    writer.Flush();
                 }
+                File.Move(temporaryPath, fullPath, true);
+                return true;
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
             {
                 Console.WriteLine($"Could not save property data: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (temporaryPath != null && File.Exists(temporaryPath))
+                {
+                    try
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        Console.WriteLine($"Could not remove temporary save file: {ex.Message}");
+                    }
+                }
             }
         }
 
@@ -173,11 +236,11 @@ namespace EstateFlow.src.Services
             if (string.IsNullOrWhiteSpace(path))
             {
                 Console.WriteLine("Could not load property data: a file path is required.");
-                return _properties;
+                return new List<Property>(_properties);
             }
 
             if (!File.Exists(path))
-                return _properties;
+                return new List<Property>(_properties);
 
             try
             {
@@ -207,7 +270,7 @@ namespace EstateFlow.src.Services
                 Console.WriteLine($"Could not load property data: {ex.Message}");
             }
 
-            return _properties;
+            return new List<Property>(_properties);
         }
 
         private static Property ParseProperty(IReadOnlyList<string> columns)
