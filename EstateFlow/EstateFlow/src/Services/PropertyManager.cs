@@ -1,12 +1,19 @@
 using EstateFlow.src.Models.Enums;
 using EstateFlow.src.Models.Properties;
 using EstateFlow.src.Models.Users;
+using EstateFlow.src.Services.Interfaces;
 
 namespace EstateFlow.src.Services
 {
     public class PropertyManager
     {
         private readonly List<Property> _properties = new();
+        private readonly IPropertyRepository _propertyRepository;
+
+        public PropertyManager(IPropertyRepository propertyRepository)
+        {
+            _propertyRepository = propertyRepository ?? throw new ArgumentNullException(nameof(propertyRepository));
+        }
 
         public IReadOnlyList<Property> Properties => _properties.AsReadOnly();
 
@@ -152,13 +159,13 @@ namespace EstateFlow.src.Services
 
         public bool SaveAll(List<Property> properties, string path)
         {
-            return PropertyCsvRepository.SaveAll(properties, path);
+            return _propertyRepository.SaveAll(properties, path);
         }
 
         public void LoadAll(string path)
         {
             _properties.Clear();
-            foreach (Property property in PropertyCsvRepository.LoadAll(path))
+            foreach (Property property in _propertyRepository.LoadAll(path))
             {
                 try
                 {

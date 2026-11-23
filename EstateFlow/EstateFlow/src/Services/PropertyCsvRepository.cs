@@ -1,13 +1,14 @@
 using EstateFlow.src.Models.Enums;
 using EstateFlow.src.Models.Properties;
+using EstateFlow.src.Services.Interfaces;
 using System.Globalization;
 using System.Text;
 
 namespace EstateFlow.src.Services
 {
-    public static class PropertyCsvRepository
+    public class PropertyCsvRepository : IPropertyRepository
     {
-        public static bool SaveAll(List<Property> properties, string path)
+        public bool SaveAll(List<Property> properties, string path)
         {
             ArgumentNullException.ThrowIfNull(properties);
             if (string.IsNullOrWhiteSpace(path))
@@ -65,7 +66,7 @@ namespace EstateFlow.src.Services
             }
         }
 
-        public static List<Property> LoadAll(string path)
+        public List<Property> LoadAll(string path)
         {
             List<Property> properties = new();
             if (string.IsNullOrWhiteSpace(path))

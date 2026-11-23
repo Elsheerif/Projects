@@ -2,6 +2,7 @@ using EstateFlow.src.Models.Enums;
 using EstateFlow.src.Models.Properties;
 using EstateFlow.src.Models.Users;
 using EstateFlow.src.Services;
+using EstateFlow.src.Services.Interfaces;
 using System.Globalization;
 using System;
 
@@ -28,7 +29,8 @@ namespace EstateFlow.src
             try
             {
                 UserManager userManager = CreateUserManager();
-                PropertyManager propertyManager = new();
+                IPropertyRepository propertyRepository = new PropertyCsvRepository();
+                PropertyManager propertyManager = new(propertyRepository);
                 propertyManager.LoadAll(PropertiesFilePath);
 
                 User? currentUser = SelectAccount(userManager);
