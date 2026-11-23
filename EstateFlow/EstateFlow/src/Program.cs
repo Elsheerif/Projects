@@ -16,6 +16,7 @@ namespace EstateFlow.src
             Search,
             Buy,
             ViewAvailable,
+            ViewSold,
             RestoreSold,
             Exit
         }
@@ -112,6 +113,7 @@ namespace EstateFlow.src
                 currentUser.HasPermission(UserPermission.ManageAllProperties);
             bool canBuyProperties = currentUser.HasPermission(UserPermission.PurchaseProperties);
             bool canRestoreSoldProperties = currentUser.HasPermission(UserPermission.ManageAllProperties);
+            bool canViewSoldProperties = currentUser.HasPermission(UserPermission.ManageAllProperties);
             List<PropertyMenuAction> menuActions = new();
             if (canAddProperties)
                 menuActions.Add(PropertyMenuAction.AddProperty);
@@ -120,6 +122,8 @@ namespace EstateFlow.src
             if (canBuyProperties)
                 menuActions.Add(PropertyMenuAction.Buy);
             menuActions.Add(PropertyMenuAction.ViewAvailable);
+            if (canViewSoldProperties)
+                menuActions.Add(PropertyMenuAction.ViewSold);
             if (canRestoreSoldProperties)
                 menuActions.Add(PropertyMenuAction.RestoreSold);
             menuActions.Add(PropertyMenuAction.Exit);
@@ -181,6 +185,9 @@ namespace EstateFlow.src
                         case PropertyMenuAction.ViewAvailable:
                             manager.DisplayAvailable();
                             break;
+                        case PropertyMenuAction.ViewSold:
+                            manager.DisplaySold();
+                            break;
                         case PropertyMenuAction.RestoreSold:
                             RestoreSoldProperty(manager, currentUser);
                             break;
@@ -209,6 +216,7 @@ namespace EstateFlow.src
                 PropertyMenuAction.Search => "Search by property type",
                 PropertyMenuAction.Buy => "Buy a property",
                 PropertyMenuAction.ViewAvailable => "View available properties",
+                PropertyMenuAction.ViewSold => "View sold properties",
                 PropertyMenuAction.RestoreSold => "Restore a sold property",
                 PropertyMenuAction.Exit => "Exit",
                 _ => "Unknown action"

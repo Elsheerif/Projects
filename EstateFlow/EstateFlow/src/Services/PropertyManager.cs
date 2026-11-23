@@ -145,6 +145,11 @@ namespace EstateFlow.src.Services
             PropertyConsoleDisplay.Display(_properties.Where(property => property.Status == PropertyStatus.Available));
         }
 
+        public void DisplaySold()
+        {
+            PropertyConsoleDisplay.Display(_properties.Where(property => property.Status == PropertyStatus.Sold));
+        }
+
         public bool SaveAll(List<Property> properties, string path)
         {
             return PropertyCsvRepository.SaveAll(properties, path);
