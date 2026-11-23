@@ -9,151 +9,6 @@ namespace EstateFlow.src
 {
     internal class Program
     {
-        private static void ShowUserMenu(User user, AuthorizationService authorizationService)
-        {
-            while (true)
-            {
-                Console.WriteLine("\n================================");
-                Console.WriteLine("          EstatePro Menu");
-                Console.WriteLine("================================");
-                Console.WriteLine($"Welcome, {user.FullName}");
-
-                if (user is SystemAdmin)
-                {
-                    Console.WriteLine("\n--- System Admin Menu ---");
-                    Console.WriteLine("1. Browse Properties");
-                    Console.WriteLine("2. Manage All Properties");
-                    Console.WriteLine("3. Manage Viewing Requests");
-                    Console.WriteLine("4. Approve Listings");
-                    Console.WriteLine("5. Manage Users");
-                    Console.WriteLine("6. Complete Transactions");
-                    Console.WriteLine("7. View Reports");
-                }
-                else if (user is Owner)
-                {
-                    Console.WriteLine("\n--- Owner Menu ---");
-                    Console.WriteLine("1. Browse Properties");
-                    Console.WriteLine("2. Manage Own Properties");
-                    Console.WriteLine("3. Manage Viewing Requests");
-                }
-                else if (user is Buyer)
-                {
-                    Console.WriteLine("\n--- Buyer Menu ---");
-                    Console.WriteLine("1. Browse Properties");
-                    Console.WriteLine("2. Request a Viewing");
-                }
-
-                Console.WriteLine("0. Logout");
-                Console.Write("\nEnter your choice: ");
-
-                if (!int.TryParse(Console.ReadLine(), out int choice))
-                {
-                    Console.WriteLine("Invalid input. Please enter a number.");
-                    continue;
-                }
-                if (choice == 0)
-                {
-                    Console.WriteLine("You have logged out successfully.");
-                    break;
-                }
-
-                UserPermission? requiredPermission = null;
-                string actionName = "";
-
-
-                if (user is SystemAdmin)
-                {
-                    switch (choice)
-                    {
-                        case 1:
-                            requiredPermission = UserPermission.BrowseProperties;
-                            actionName = "Browse Properties";
-                            break;
-
-                        case 2:
-                            requiredPermission = UserPermission.ManageAllProperties;
-                            actionName = "Manage All Properties";
-                            break;
-
-                        case 3:
-                            requiredPermission = UserPermission.ManageViewingRequests;
-                            actionName = "Manage Viewing Requests";
-                            break;
-
-                        case 4:
-                            requiredPermission = UserPermission.ApproveListings;
-                            actionName = "Approve Listings";
-                            break;
-
-                        case 5:
-                            requiredPermission = UserPermission.ManageUsers;
-                            actionName = "Manage Users";
-                            break;
-
-                        case 6:
-                            requiredPermission = UserPermission.CompleteTransactions;
-                            actionName = "Complete Transactions";
-                            break;
-
-                        case 7:
-                            requiredPermission = UserPermission.ViewReports;
-                            actionName = "View Reports";
-                            break;
-                    }
-                }
-                else if (user is Owner)
-                {
-                    switch (choice)
-                    {
-                        case 1:
-                            requiredPermission = UserPermission.BrowseProperties;
-                            actionName = "Browse Properties";
-                            break;
-
-                        case 2:
-                            requiredPermission = UserPermission.ManageOwnProperties;
-                            actionName = "Manage Own Properties";
-                            break;
-
-                        case 3:
-                            requiredPermission = UserPermission.ManageViewingRequests;
-                            actionName = "Manage Viewing Requests";
-                            break;
-                    }
-                }
-                else if (user is Buyer)
-                {
-                    switch (choice)
-                    {
-                        case 1:
-                            requiredPermission = UserPermission.BrowseProperties;
-                            actionName = "Browse Properties";
-                            break;
-
-                        case 2:
-                            requiredPermission = UserPermission.RequestViewing;
-                            actionName = "Request a Viewing";
-                            break;
-                    }
-                }
-
-                if (!requiredPermission.HasValue)
-                {
-                    Console.WriteLine("Invalid choice. Please try again.");
-                    continue;
-                }
-
-                if (authorizationService.HasPermission(user, requiredPermission.Value))
-                {
-                    Console.WriteLine($"\nAccess granted: {actionName}");
-                    Console.WriteLine("This feature is not implemented yet.");
-                }
-                else
-                {
-                    Console.WriteLine("\nAccess denied. You don't have permission.");
-                }
-            }
-        }
         private enum PropertyMenuAction
         {
             AddProperty,
@@ -161,12 +16,10 @@ namespace EstateFlow.src
             Search,
             Buy,
             ViewAvailable,
+            ViewSold,
             RestoreSold,
             Exit
         }
-
-        UserManager userManager = new UserManager();
-        AuthorizationService authorizationService = new AuthorizationService();
 
         private static readonly string PropertiesFilePath = Path.Combine(FindProjectDirectory(), "properties.csv");
 
@@ -256,16 +109,22 @@ namespace EstateFlow.src
 
         private static void RunPropertyMenu(PropertyManager manager, User currentUser)
         {
-            bool isAdmin = currentUser is SystemAdmin;
+            bool canAddProperties = currentUser.HasPermission(UserPermission.ManageOwnProperties) ||
+                currentUser.HasPermission(UserPermission.ManageAllProperties);
+            bool canBuyProperties = currentUser.HasPermission(UserPermission.PurchaseProperties);
+            bool canRestoreSoldProperties = currentUser.HasPermission(UserPermission.ManageAllProperties);
+            bool canViewSoldProperties = currentUser.HasPermission(UserPermission.ManageAllProperties);
             List<PropertyMenuAction> menuActions = new();
-            if (currentUser is Owner or SystemAdmin)
+            if (canAddProperties)
                 menuActions.Add(PropertyMenuAction.AddProperty);
             menuActions.Add(PropertyMenuAction.ViewAll);
             menuActions.Add(PropertyMenuAction.Search);
-            if (currentUser is Buyer)
+            if (canBuyProperties)
                 menuActions.Add(PropertyMenuAction.Buy);
             menuActions.Add(PropertyMenuAction.ViewAvailable);
-            if (isAdmin)
+            if (canViewSoldProperties)
+                menuActions.Add(PropertyMenuAction.ViewSold);
+            if (canRestoreSoldProperties)
                 menuActions.Add(PropertyMenuAction.RestoreSold);
             menuActions.Add(PropertyMenuAction.Exit);
 
@@ -277,11 +136,11 @@ namespace EstateFlow.src
                 Console.WriteLine("================================");
                 for (int index = 0; index < menuActions.Count; index++)
                     Console.WriteLine($"{index + 1}. {GetMenuLabel(menuActions[index])}");
-                if (currentUser is Buyer)
+                if (canBuyProperties)
                     Console.WriteLine("You can also type 'I want to buy <property name>'.");
 
                 string menuInput = ReadText("Enter your choice: ");
-                if (currentUser is Buyer && menuInput.StartsWith("I want to buy ", StringComparison.OrdinalIgnoreCase))
+                if (canBuyProperties && menuInput.StartsWith("I want to buy ", StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -312,7 +171,7 @@ namespace EstateFlow.src
                     switch (action)
                     {
                         case PropertyMenuAction.AddProperty:
-                            AddProperty(manager);
+                            AddProperty(manager, currentUser);
                             break;
                         case PropertyMenuAction.ViewAll:
                             manager.Display();
@@ -325,6 +184,9 @@ namespace EstateFlow.src
                             break;
                         case PropertyMenuAction.ViewAvailable:
                             manager.DisplayAvailable();
+                            break;
+                        case PropertyMenuAction.ViewSold:
+                            manager.DisplaySold();
                             break;
                         case PropertyMenuAction.RestoreSold:
                             RestoreSoldProperty(manager, currentUser);
@@ -351,16 +213,17 @@ namespace EstateFlow.src
             {
                 PropertyMenuAction.AddProperty => "Add a new property",
                 PropertyMenuAction.ViewAll => "View all properties",
-                PropertyMenuAction.Search => "Search by name or keyword",
+                PropertyMenuAction.Search => "Search by property type",
                 PropertyMenuAction.Buy => "Buy a property",
                 PropertyMenuAction.ViewAvailable => "View available properties",
+                PropertyMenuAction.ViewSold => "View sold properties",
                 PropertyMenuAction.RestoreSold => "Restore a sold property",
                 PropertyMenuAction.Exit => "Exit",
                 _ => "Unknown action"
             };
         }
 
-        private static void AddProperty(PropertyManager manager)
+        private static void AddProperty(PropertyManager manager, User currentUser)
         {
             Console.WriteLine("\nChoose a property type:");
             Console.WriteLine("1. Apartment  2. Villa  3. Duplex  4. Penthouse  5. Office  6. Retail Shop");
@@ -406,48 +269,21 @@ namespace EstateFlow.src
             string developer = ReadText("Real estate developer: ").Trim();
             string description = ReadText("Description: ").Trim();
 
-            Property property = typeChoice switch
-            {
-                1 => new Apartment(id, name, address, totalCost, amountSpent, developer, description),
-                2 => new Villa(id, name, address, totalCost, amountSpent, developer, description),
-                3 => new Duplex(id, name, address, totalCost, amountSpent, developer, description),
-                4 => new Penthouse(id, name, address, totalCost, amountSpent, developer, description),
-                5 => new Office(id, name, address, totalCost, amountSpent, developer, description),
-                6 => new RetailShop(id, name, address, totalCost, amountSpent, developer, description),
-                _ => throw new InvalidOperationException("Property type is invalid.")
-            };
+            Property property = PropertyFactory.Create(
+                (PropertyType)typeChoice, id, name, address, totalCost, amountSpent, developer, description);
 
-            manager.Add(property);
+            manager.Add(property, currentUser);
             SaveChanges(manager, "Property added. Its availability is Available.");
         }
 
         private static void SearchProperties(PropertyManager manager)
         {
-            string keyword = ReadText("Enter a name or keyword: ");
+            string keyword = ReadText("Enter a property type: ");
             IReadOnlyList<Property> matches = manager.FindAll(keyword);
             if (matches.Count == 0)
                 Console.WriteLine("No matching properties found.");
             else
-                DisplayProperties(matches);
-        }
-
-        private static void DisplayProperties(IEnumerable<Property> properties)
-        {
-            foreach (Property property in properties)
-            {
-                Console.WriteLine("----------------------------------------");
-                Console.WriteLine($"ID: {property.Id}");
-                Console.WriteLine($"Type: {property.GetPropertyType()}");
-                Console.WriteLine($"Name: {property.Name}");
-                Console.WriteLine($"Address: {property.Address}");
-                Console.WriteLine($"Total cost: {property.TotalCost.ToString("F2", CultureInfo.InvariantCulture)}");
-                Console.WriteLine($"Amount spent: {property.AmountSpent.ToString("F2", CultureInfo.InvariantCulture)}");
-                Console.WriteLine($"Remaining: {property.Remaining.ToString("F2", CultureInfo.InvariantCulture)}");
-                Console.WriteLine($"Real estate developer: {property.Developer}");
-                Console.WriteLine($"Availability: {property.Status}");
-                Console.WriteLine($"Description: {property.Description}");
-            }
-            Console.WriteLine("----------------------------------------");
+                PropertyConsoleDisplay.Display(matches);
         }
 
         private static void BuyProperty(PropertyManager manager, User currentUser, string? requestedName = null)
@@ -457,16 +293,19 @@ namespace EstateFlow.src
                 : requestedName.Trim();
 
             IReadOnlyList<Property> matches = manager.FindByExactName(propertyName);
+            if (matches.Count == 0)
+                throw new InvalidOperationException("No property with that name was found.");
+
             if (matches.Count > 1)
             {
                 Console.WriteLine("Several properties have that name. Select one by ID:");
-                DisplayProperties(matches);
+                PropertyConsoleDisplay.Display(matches);
                 string id = ReadText("Property ID to buy: ").Trim();
                 manager.BuyById(id, currentUser);
             }
             else
             {
-                manager.BuyByName(propertyName, currentUser);
+                manager.BuyById(matches[0].Id, currentUser);
             }
 
             SaveChanges(manager, $"'{propertyName}' has been marked as sold.");
@@ -532,13 +371,6 @@ namespace EstateFlow.src
 
             return Directory.GetCurrentDirectory();
         }
-
-        //ShowUserMenu(currentUser, authorizationService); 
-        //                }
-        //                catch (ArgumentException ex)
-        //                {
-        //                    Console.WriteLine($"Error: {ex.Message}");
-        //                }
 
     }
 }
