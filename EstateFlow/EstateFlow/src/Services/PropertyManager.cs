@@ -110,26 +110,16 @@ namespace EstateFlow.src.Services
             if (property == null)
                 throw new InvalidOperationException("Property was not found.");
 
-            if (status == PropertyStatus.Available && property.Status == PropertyStatus.Sold &&
-                !actor.HasPermission(UserPermission.ManageAllProperties))
+            if (status == PropertyStatus.Available)
             {
-                throw new UnauthorizedAccessException("Only a System Admin can make a sold property available again.");
+                if (!actor.HasPermission(UserPermission.ManageAllProperties))
+                    throw new UnauthorizedAccessException("Only a System Admin can restore a sold property.");
+
+                if (property.Status == PropertyStatus.Available)
+                    throw new InvalidOperationException("This property is already available.");
             }
 
             property.SetStatus(status);
-        }
-
-        public void BuyByName(string name, User buyer)
-        {
-            EnsureCanBuy(buyer);
-            IReadOnlyList<Property> matches = FindByExactName(name);
-
-            if (matches.Count == 0)
-                throw new InvalidOperationException("No property with that name was found.");
-            if (matches.Count > 1)
-                throw new InvalidOperationException("More than one property has that name. Select one by ID.");
-
-            MarkSold(matches[0]);
         }
 
         public void BuyById(string id, User buyer)
