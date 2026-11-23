@@ -5,7 +5,7 @@ namespace EstateFlow.src.Models.Users
     public abstract class User
     {
         private string _userId;
-        private string _fullName;
+        private string _fullName = string.Empty;
         private UserStatus _status;
 
         public string UserId

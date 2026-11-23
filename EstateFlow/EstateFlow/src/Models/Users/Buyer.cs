@@ -10,6 +10,7 @@ namespace EstateFlow.src.Models.Users
             _permissions = Array.AsReadOnly(new[]
             {
                 UserPermission.BrowseProperties,
+                UserPermission.PurchaseProperties,
                 UserPermission.RequestViewing
             });
 

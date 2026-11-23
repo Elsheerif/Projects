@@ -3,6 +3,7 @@
     public enum UserPermission
     {
         BrowseProperties,
+        PurchaseProperties,
         ManageOwnProperties,
         ManageAllProperties,
         RequestViewing,

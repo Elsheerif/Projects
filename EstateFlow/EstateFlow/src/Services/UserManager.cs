@@ -1,6 +1,4 @@
 ﻿using EstateFlow.src.Models.Users;
-using System.Linq;
-
 namespace EstateFlow.src.Services
 {
     public class UserManager
