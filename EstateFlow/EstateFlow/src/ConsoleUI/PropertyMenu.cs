@@ -33,6 +33,7 @@ namespace EstateFlow.src.ConsoleUI
 
         public bool Run()
         {
+            bool canBrowseProperties = _currentUser.HasPermission(UserPermission.BrowseProperties);
             bool canAddProperties = _currentUser.HasPermission(UserPermission.ManageOwnProperties) ||
                 _currentUser.HasPermission(UserPermission.ManageAllProperties);
             bool canBuyProperties = _currentUser.HasPermission(UserPermission.PurchaseProperties);
@@ -40,11 +41,15 @@ namespace EstateFlow.src.ConsoleUI
             List<MenuAction> menuActions = new();
             if (canAddProperties)
                 menuActions.Add(MenuAction.AddProperty);
-            menuActions.Add(MenuAction.ViewAll);
-            menuActions.Add(MenuAction.Search);
+            if (canBrowseProperties)
+            {
+                menuActions.Add(MenuAction.ViewAll);
+                menuActions.Add(MenuAction.Search);
+            }
             if (canBuyProperties)
                 menuActions.Add(MenuAction.Buy);
-            menuActions.Add(MenuAction.ViewAvailable);
+            if (canBrowseProperties)
+                menuActions.Add(MenuAction.ViewAvailable);
             if (canManageAllProperties)
             {
                 menuActions.Add(MenuAction.ViewSold);
@@ -210,7 +215,7 @@ namespace EstateFlow.src.ConsoleUI
         private void SearchProperties()
         {
             string keyword = ConsoleInput.ReadText("Enter a property type: ");
-            IReadOnlyList<Property> matches = _manager.FindAll(keyword);
+            IReadOnlyList<Property> matches = _manager.FindByType(keyword);
             if (matches.Count == 0)
                 Console.WriteLine("No matching properties found.");
             else
@@ -245,7 +250,7 @@ namespace EstateFlow.src.ConsoleUI
         private void RestoreSoldProperty()
         {
             string id = ConsoleInput.ReadText("Enter the sold property ID to restore: ");
-            _manager.UpdateStatus(id, PropertyStatus.Available, _currentUser);
+            _manager.RestoreSoldProperty(id, _currentUser);
             SaveChanges("Property is Available again.");
         }
 

@@ -88,38 +88,32 @@ namespace EstateFlow.src.Services
                 .AsReadOnly();
         }
 
-        public IReadOnlyList<Property> FindAll(string keyword)
+        public IReadOnlyList<Property> FindByType(string propertyType)
         {
-            if (string.IsNullOrWhiteSpace(keyword))
-                throw new ArgumentException("Enter a property name or keyword.", nameof(keyword));
+            if (string.IsNullOrWhiteSpace(propertyType))
+                throw new ArgumentException("Enter a property type.", nameof(propertyType));
 
-            string query = keyword.Trim();
+            string query = propertyType.Trim();
             return _properties.Where(property =>
                     property.GetPropertyType().Contains(query, StringComparison.OrdinalIgnoreCase))
                 .ToList()
                 .AsReadOnly();
         }
 
-        public void UpdateStatus(string id, PropertyStatus status, User actor)
+        public void RestoreSoldProperty(string id, User actor)
         {
             ArgumentNullException.ThrowIfNull(actor);
-            if (!Enum.IsDefined(status))
-                throw new ArgumentOutOfRangeException(nameof(status), "Choose a valid property status.");
-
             Property? property = FindById(id);
             if (property == null)
                 throw new InvalidOperationException("Property was not found.");
 
-            if (status == PropertyStatus.Available)
-            {
-                if (!actor.HasPermission(UserPermission.ManageAllProperties))
-                    throw new UnauthorizedAccessException("Only a System Admin can restore a sold property.");
+            if (!actor.HasPermission(UserPermission.ManageAllProperties))
+                throw new UnauthorizedAccessException("Only a System Admin can restore a sold property.");
 
-                if (property.Status == PropertyStatus.Available)
-                    throw new InvalidOperationException("This property is already available.");
-            }
+            if (property.Status == PropertyStatus.Available)
+                throw new InvalidOperationException("This property is already available.");
 
-            property.SetStatus(status);
+            property.SetStatus(PropertyStatus.Available);
         }
 
         public void BuyById(string id, User buyer)

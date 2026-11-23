@@ -83,20 +83,38 @@ namespace EstateFlow.src.Services
                 using StreamReader reader = new(path, Encoding.UTF8);
                 string? line;
                 int lineNumber = 0;
+                int recordStartLine = 0;
+                StringBuilder record = new();
                 while ((line = reader.ReadLine()) != null)
                 {
                     lineNumber++;
-                    if (string.IsNullOrWhiteSpace(line))
+                    if (record.Length == 0 && string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    if (record.Length == 0)
+                        recordStartLine = lineNumber;
+                    else
+                        record.Append('\n');
+
+                    record.Append(line);
+                    if (HasOpenQuotedField(record))
                         continue;
 
                     try
                     {
-                        properties.Add(ParseProperty(ParseCsvLine(line)));
+                        properties.Add(ParseProperty(ParseCsvLine(record.ToString())));
                     }
                     catch (Exception ex) when (ex is FormatException || ex is ArgumentException || ex is InvalidOperationException)
                     {
-                        Console.WriteLine($"Skipped invalid property data on line {lineNumber}: {ex.Message}");
+                        Console.WriteLine($"Skipped invalid property data on line {recordStartLine}: {ex.Message}");
                     }
+
+                    record.Clear();
+                }
+
+                if (record.Length > 0)
+                {
+                    Console.WriteLine($"Skipped invalid property data on line {recordStartLine}: A quoted field was not closed.");
                 }
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
@@ -174,6 +192,26 @@ namespace EstateFlow.src.Services
 
             columns.Add(value.ToString());
             return columns;
+        }
+
+        private static bool HasOpenQuotedField(StringBuilder record)
+        {
+            bool insideQuotes = false;
+            for (int index = 0; index < record.Length; index++)
+            {
+                if (record[index] != '"')
+                    continue;
+
+                if (insideQuotes && index + 1 < record.Length && record[index + 1] == '"')
+                {
+                    index++;
+                    continue;
+                }
+
+                insideQuotes = !insideQuotes;
+            }
+
+            return insideQuotes;
         }
     }
 }

@@ -5,12 +5,6 @@
         BrowseProperties,
         PurchaseProperties,
         ManageOwnProperties,
-        ManageAllProperties,
-        RequestViewing,
-        ManageViewingRequests,
-        ApproveListings,
-        ManageUsers,
-        CompleteTransactions,
-        ViewReports
+        ManageAllProperties
     }
 }

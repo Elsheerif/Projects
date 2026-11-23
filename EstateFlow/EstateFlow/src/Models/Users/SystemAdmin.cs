@@ -8,12 +8,7 @@ namespace EstateFlow.src.Models.Users
             _permissions = Array.AsReadOnly(new[]
             {
                 UserPermission.BrowseProperties,
-                UserPermission.ManageAllProperties,
-                UserPermission.ManageViewingRequests,
-                UserPermission.ApproveListings,
-                UserPermission.ManageUsers,
-                UserPermission.CompleteTransactions,
-                UserPermission.ViewReports
+                UserPermission.ManageAllProperties
             });
 
         public SystemAdmin(string userId, string fullName) : base(userId, fullName)
